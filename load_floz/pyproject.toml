@@ -1,0 +1,22 @@
+[project]
+name = "load_floz"
+description = "Load .floz files saved by Fast Lock On (FLO) tracking"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+]
+version = "0.1.0"
+readme = "README.md"
+authors = [{ name = "Andrew Straw", email = "strawman@astraw.com" }]
+
+dependencies = ["pandas", "PyYAML", "pytz"]
+
+[project.urls]
+Homepage = "https://github.com/strawlab/flo-data-analysis"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
