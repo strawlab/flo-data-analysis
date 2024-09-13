@@ -1,9 +1,6 @@
 # flo-data-analysis
 
-<img
-    src="https://zenodo.org/badge/DOI/10.5281/zenodo.13757080.svg"
-    alt="DOI: 10.5281/zenodo.13757080"
-/>
+[![DOI](https://zenodo.org/badge/856300039.svg)](https://zenodo.org/doi/10.5281/zenodo.13757079)
 
 Data analysis for [FLO](https://github.com/strawlab/flo).
 
