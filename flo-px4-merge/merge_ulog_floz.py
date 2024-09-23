@@ -46,14 +46,19 @@ gps_utc = vehicle_gps_position.data["time_utc_usec"]
 gps_t = vehicle_gps_position.data["timestamp"]
 utc_offset_usec = gps_utc[0] - gps_t[0]
 
-local_pos_data_t = local_pos_data.data["timestamp"]  # usecs since system start
+vehicle_local_position_df = ulog_to_pandas(local_pos_data)
+vehicle_local_position_df = vehicle_local_position_df[vehicle_local_position_df['ref_timestamp']!=0]
+
+local_pos_data_t = np.array(vehicle_local_position_df["timestamp"])  # usecs since system start
+print(local_pos_data_t)
 vehicle_attitude_t = vehicle_attitude.data["timestamp"]  # usecs since system start
+print(vehicle_attitude_t)
 
 local_pos_data_t = pd.to_datetime(local_pos_data_t * 1e-6 + utc_offset_usec * 1e-6, unit="s").tz_localize('UTC')
 vehicle_attitude_t= pd.to_datetime(vehicle_attitude_t * 1e-6 + utc_offset_usec * 1e-6, unit="s").tz_localize('UTC')
 
-
-vehicle_local_position_df = ulog_to_pandas(ulog.get_dataset("vehicle_local_position"))
+print(vehicle_local_position_df)
+print(vehicle_local_position_df["ref_lat"].unique())
 assert len(vehicle_local_position_df["ref_lat"].unique())==1
 assert len(vehicle_local_position_df["ref_lon"].unique())==1
 assert len(vehicle_local_position_df["ref_alt"].unique())==1
@@ -64,7 +69,7 @@ vehicle_local_position_df["north"] = vehicle_local_position_df["x"]
 vehicle_local_position_df["east"] = vehicle_local_position_df["y"]
 vehicle_local_position_df["down"] = vehicle_local_position_df["z"]
 vehicle_local_position_df["reftime"] = local_pos_data_t
-vehicle_attitude_df = ulog_to_pandas(ulog.get_dataset("vehicle_attitude"))
+vehicle_attitude_df = ulog_to_pandas(vehicle_attitude)
 vehicle_attitude_df["reftime"] = vehicle_attitude_t
 
 px4_combined_df = pd.merge(vehicle_attitude_df, vehicle_local_position_df, how='outer', left_on="timestamp_sample", right_on="timestamp_sample")
