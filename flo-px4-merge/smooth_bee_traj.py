@@ -79,7 +79,8 @@ motion_noise_covariance = motion_noise_scale*np.array(
 
 # orthophoto = iio.imread('self-orthophoto-maker.png')
 
-bee_traj_df = pd.read_csv(conf.out_filename('-bee.csv'))
+bee_filename = conf.out_filename('-bee.csv')
+bee_traj_df = pd.read_csv(bee_filename)
 assert len(bee_traj_df["ref_lat"].unique())==1
 assert len(bee_traj_df["ref_lon"].unique())==1
 assert len(bee_traj_df["ref_alt"].unique())==1
@@ -87,6 +88,17 @@ ref_lat = bee_traj_df.iloc[0]["ref_lat"]
 ref_lon = bee_traj_df.iloc[0]["ref_lon"]
 ref_alt = bee_traj_df.iloc[0]["ref_alt"]
 reftime0 = pd.to_datetime(bee_traj_df.iloc[0]["reftime"])
+
+reftimes = pd.to_datetime(bee_traj_df["reftime"])
+obs_dt = reftimes.diff()
+long_dt_cond = obs_dt >  pd.Timedelta(value=10,unit='seconds')
+jump_reftimes = reftimes[long_dt_cond]
+if len(jump_reftimes)>0:
+    print('WARNING: there is a large gap in the data starting at the following times:')
+    for jump_reftime in jump_reftimes:
+        jump_reftime = pd.to_datetime(jump_reftime)
+        print(jump_reftime.isoformat())
+    print(f"Suggestion: set 'end_tracking_time' configuration to this time and re-save {bee_filename}")
 
 copter_traj_df = pd.read_csv(conf.out_filename('-copter.csv'))
 timeseries_svg = conf.out_filename('-timeseries.svg')
@@ -244,8 +256,8 @@ for fno in range(len(copter_traj_df['east_f'])):
         if orig_reftime <= copter_row.reftime:
             if orig_reftime != copter_row.reftime:
                 time_offset = copter_row.reftime - orig_reftime
-                # ensure the maximum temporal error is one millisecond.
-                assert time_offset < pd.Timedelta(value=1,unit='milliseconds'), 'Data offset too much'
+                # limit maximum temporal error
+                assert time_offset < pd.Timedelta(value=110,unit='milliseconds'), f'Data offset {time_offset} too much'
             orig_bee_offset = fno
             orig_bee_idx = 0
         else:

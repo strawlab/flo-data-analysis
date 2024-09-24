@@ -92,6 +92,20 @@ del tracking_state_df, motor_positions_df
 # use rolling median on distance estimates
 flo_combined_df['distance_smoothed'] = flo_combined_df['est_dist'].rolling(5).median()
 
+# start tracking
+tracking_time_start = conf.get('tracking_time_start')
+if tracking_time_start is not None:
+    tracking_time_start = pd.to_datetime(tracking_time_start)
+    flo_combined_df = flo_combined_df[tracking_time_start <= flo_combined_df['reftime_x']]
+
+# end tracking
+tracking_time_end = conf.get('tracking_time_end')
+if tracking_time_end is not None:
+    tracking_time_end = pd.to_datetime(tracking_time_end)
+    flo_combined_df = flo_combined_df[flo_combined_df['reftime_x'] <= tracking_time_end]
+
+print('FLO data time range (prior to masking):', flo_combined_df.iloc[0]['reftime_x'], ' - ', flo_combined_df.iloc[-1]['reftime_x'])
+
 if mask_df is not None:
     dur = pd.Timedelta(seconds=0)
     total_dur = pd.to_datetime(flo_combined_df['reftime_x'].max()) - pd.to_datetime(flo_combined_df['reftime_x'].min())
