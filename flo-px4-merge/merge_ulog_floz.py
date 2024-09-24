@@ -50,15 +50,11 @@ vehicle_local_position_df = ulog_to_pandas(local_pos_data)
 vehicle_local_position_df = vehicle_local_position_df[vehicle_local_position_df['ref_timestamp']!=0]
 
 local_pos_data_t = np.array(vehicle_local_position_df["timestamp"])  # usecs since system start
-print(local_pos_data_t)
 vehicle_attitude_t = vehicle_attitude.data["timestamp"]  # usecs since system start
-print(vehicle_attitude_t)
 
 local_pos_data_t = pd.to_datetime(local_pos_data_t * 1e-6 + utc_offset_usec * 1e-6, unit="s").tz_localize('UTC')
 vehicle_attitude_t= pd.to_datetime(vehicle_attitude_t * 1e-6 + utc_offset_usec * 1e-6, unit="s").tz_localize('UTC')
 
-print(vehicle_local_position_df)
-print(vehicle_local_position_df["ref_lat"].unique())
 assert len(vehicle_local_position_df["ref_lat"].unique())==1
 assert len(vehicle_local_position_df["ref_lon"].unique())==1
 assert len(vehicle_local_position_df["ref_alt"].unique())==1
@@ -109,6 +105,8 @@ if mask_df is not None:
 print("Done loading data, now saving to RRD.")
 
 recording_id = conf.get('recording_id', uuid4())
+if recording_id is None:
+    raise ValueError("Are you setting recording_id to None? Don't do this as it prevents building a new UUID.")
 print(f'rerun recording_id: {recording_id}')
 rr.init("export_floz_ulog_to_rrd", recording_id = recording_id)
 rr.save(rerun_filename)

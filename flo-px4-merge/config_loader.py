@@ -26,7 +26,7 @@ class ConfigLoader:
         return path
     def __getitem__(self, key):
         return self.conf.__getitem__(key)
-    def get(self, *args, **kwargs):
-        return self.conf.get(*args, **kwargs)
+    def get(self, key, *args):
+        return self.conf.get(key, *args)
     def out_filename(self, ext: str) -> str:
         return os.path.join(self.output_dir, self.name+ext)
