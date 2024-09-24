@@ -97,6 +97,15 @@ def gpx_format_dt(ts: pd.Timestamp) -> str:
     return ts.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
 def smooth_traj(traj_df):
+    """modify pandas.DataFrame containing a trajectory.
+
+    The input trajectory DataFrame is modified in the following ways:
+
+      * resampled to have interval `dt`.
+      * columns of smoothed data are added. The new columns are: `since_start`,
+        `east_f`, `north_f`, and `up_f`.
+
+    """
     reftime = pd.to_datetime(traj_df['reftime'])
     traj_df['reftime'] = reftime
     traj_df.set_index('reftime', inplace=True, verify_integrity=True, drop=False)
@@ -141,6 +150,7 @@ def smooth_traj(traj_df):
     traj_df['up_f'] = xfilt[:,2]
     return (traj_df, xfilt)
 
+orig_bee_traj_df = bee_traj_df.copy()
 bee_traj_df, bee_smoothed = smooth_traj(bee_traj_df)
 copter_traj_df, copter_smoothed = smooth_traj(copter_traj_df)
 
@@ -207,12 +217,16 @@ speed_horiz = np.sqrt(np.sum(dx[:,3:5]**2, axis=1)) / dt
 
 print("trajectory duration: %.1f s, length %.1f m"%(bee_traj_df['since_start'].iloc[-1],traj_len))
 
+# Start of bee data in smoothed DataFrame
 bee_offset = None
+# Start of bee data in original DataFrame
+orig_bee_offset = None
 for fno in range(len(copter_traj_df['east_f'])):
 
     copter_row = copter_traj_df.iloc[fno]
 
     if bee_offset is None:
+        # Is this the start of the smoothed bee data?
         bee_row = bee_traj_df.iloc[0]
         if bee_row.reftime == copter_row.reftime:
             bee_offset = fno
@@ -222,6 +236,23 @@ for fno in range(len(copter_traj_df['east_f'])):
             bee_idx = None
     else:
         bee_idx = fno-bee_offset
+
+    if orig_bee_offset is None:
+        # Is this the start of the original bee data?
+        orig_bee_row = orig_bee_traj_df.iloc[0]
+        orig_reftime = pd.to_datetime(orig_bee_row.reftime)
+        if orig_reftime <= copter_row.reftime:
+            if orig_reftime != copter_row.reftime:
+                time_offset = copter_row.reftime - orig_reftime
+                # ensure the maximum temporal error is one millisecond.
+                assert time_offset < pd.Timedelta(value=1,unit='milliseconds'), 'Data offset too much'
+            orig_bee_offset = fno
+            orig_bee_idx = 0
+        else:
+            orig_bee_row = None
+            orig_bee_idx = None
+    else:
+        orig_bee_idx = fno-orig_bee_offset
 
     if bee_idx is not None:
         if bee_idx >= len(bee_traj_df):
@@ -248,8 +279,9 @@ for fno in range(len(copter_traj_df['east_f'])):
         ortho_h = ortho_w / ortho_pix_w * ortho_pix_h
         ax.imshow(orthophoto, extent=[ortho_l, ortho_l + ortho_w, ortho_b, ortho_b + ortho_h])
 
+    if orig_bee_idx is not None:
+        ax.plot(orig_bee_traj_df['east'][:orig_bee_idx], orig_bee_traj_df['north'][:orig_bee_idx], 'kx', label='obs', markersize=5)
     if bee_idx is not None:
-        ax.plot(bee_traj_df['east'][:bee_idx], bee_traj_df['north'][:bee_idx], 'wo', label='obs', markersize=3)
         ax.plot(bee_traj_df['east_f'][:bee_idx], bee_traj_df['north_f'][:bee_idx], 'k-', label='smooth', linewidth=3)
         ax.plot(bee_traj_df['east_f'][:bee_idx], bee_traj_df['north_f'][:bee_idx], 'w-', label='smooth', linewidth=2)
 
@@ -302,6 +334,7 @@ if False:
 if show_final_only:
     alt_offset = -bee_traj_df['up_f'].min() + 0.5
 
+    # Generate figure with some analysis (horizontal speed, altitude, displacement).
     fig, axes = plt.subplots(nrows=3, ncols=1, sharex=True)
     ax = axes[0]
     ax.plot(bee_traj_df['since_start'][:-1], speed_horiz, '-')
