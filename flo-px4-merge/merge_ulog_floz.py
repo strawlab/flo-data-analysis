@@ -156,15 +156,7 @@ def nearest_flo_row(reftime):
 def compute_stuff(row):
     result = {}
 
-    # In the future, we should log what mode we are in. For now, we use lack of
-    # motor commands to indicate that we are not actively tracking.
-    motor_cmd = abs(row.motor_cmd_pan) + abs(row.motor_cmd_tilt)
-    epsilon = 1e-7
-    if motor_cmd > epsilon:
-        result['distance'] = row.distance_smoothed
-    else:
-        result['distance'] = np.nan
-
+    result['distance'] = row.distance_smoothed
 
     # compute gimbal transform based on motor encoder values
     pan_delta = row.pan_enc - pan0
