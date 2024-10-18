@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.spatial as sp
 import adskalman.adskalman as adskalman
 import imageio.v3 as iio
 import os
@@ -103,10 +104,56 @@ if len(jump_reftimes)>0:
 copter_traj_df = pd.read_csv(conf.out_filename('-copter.csv'))
 timeseries_svg = conf.out_filename('-timeseries.svg')
 out_gpx = conf.out_filename('.gpx')
+out_csv = conf.out_filename('.csv')
 
 def gpx_format_dt(ts: pd.Timestamp) -> str:
     # e.g. 2024-06-27T19:08:55.501Z
     return ts.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
+def compute_tangential_pose(smoothed_traj_df, fix_pitch_level=True):
+    """compute the orientation of the bee assuming it faces in the direction of travel.
+    
+    The smooted input trajectory not modified.
+
+    Args:
+        smoothed_traj_df (pd.DataFrame): smoothed bee trajectory
+        
+    Returns:
+        pose_traj_df (pd.DataFrame): position (in local coordinates) and pose (in quaternions wrt to local reference frame) 
+        along the trajectory
+    """
+    
+    traj_df = smoothed_traj_df.copy()
+    pos_local = traj_df[['east_f', 'north_f', 'up_f']].to_numpy()
+    dx = pos_local[1:,:] - pos_local[:-1,:] # tangential vector, first basis vector of roatated basis
+    if fix_pitch_level:
+        # set horizontal component to zero
+        dx[:,2] = 0     
+    dx = dx/ np.linalg.norm(dx, axis=1, keepdims=True) # normalize
+    dx = np.vstack([dx, dx[-1,:]]) # padding for last datapoint
+    
+    # compute rest of the rotated basis
+    # planar component (zero roll angle is assumed)
+    UP = np.array([[0,0,1] for i in range(len(dx))])
+    planar = np.cross(dx,UP)
+    planar = planar / np.linalg.norm(planar,axis=1,keepdims=True)
+    
+    #orthogonal component ('dorsal direcetion of the bee')
+    orth = np.cross(planar,dx)
+    orth = orth/np.linalg.norm(orth, axis=1, keepdims=True)
+
+    #rotation (basis) matrices
+    R = np.stack((planar,dx,orth), axis=2)
+    #transfrom into quaterions, in scalar_last order: (x,z,y,w)
+    quats = sp.transform.Rotation.from_matrix(R).as_quat()
+    traj_df['x'] = quats[:,0]
+    traj_df['y'] = quats[:,1]
+    traj_df['z'] = quats[:,2]
+    traj_df['w'] = quats[:,3]
+    
+    return traj_df
+    
+    
 
 def smooth_traj(traj_df):
     """modify pandas.DataFrame containing a trajectory.
@@ -168,7 +215,13 @@ copter_traj_df, copter_smoothed = smooth_traj(copter_traj_df)
 
 dx = bee_smoothed[1:,:] - bee_smoothed[:-1,:]
 
-# export GPX
+
+#export smoothed local trajectory as csv, for rendering in virtual environment
+if out_csv:
+    csv_traj_df = compute_tangential_pose(bee_traj_df)
+    csv_traj_df.to_csv(out_csv,index=False)
+    
+#export gpx
 if out_gpx:
     gpx_time = gpx_format_dt(bee_traj_df.iloc[0].reftime)
     wgs84 = pyned2lla.wgs84()
@@ -219,6 +272,9 @@ if out_gpx:
 </gpx>
 """
         fd.write(gpx_tail)
+        
+
+
 
 
 # displacement
