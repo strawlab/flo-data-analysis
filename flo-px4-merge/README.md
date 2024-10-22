@@ -38,8 +38,23 @@ conda create -n px4-log-analysis python=3.11
 pip install -r requirements.txt
 ```
 
-## run
+## run on demo data
+
+Download `movie20240712_134113.505531834_Basler-40116283.mp4` and `DJI_0010.mp4`
+from the `Fig4-Movie2-Apis` folder in the `flo-dryad.zip` file at
+https://doi.org/10.5061/dryad.bvq83bkjr and place them in this folder, alongside
+`Makefile`.
+
+This will generate several output files, including rerun `.rrd` files, in the
+`output/` directory:
 
 ```
 conda activate px4-log-analysis
+make
+```
+
+To view the output files, run rerun:
+
+```
+rerun output/*.rrd
 ```
