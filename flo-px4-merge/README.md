@@ -35,16 +35,7 @@ as described above.
 
 ```
 conda create -n px4-log-analysis python=3.11
-pip install pyulog # Used 1.1.0
-pip install matplotlib # Used 3.9.1
-pip install pandas # Used 2.2.2
-pip install PyYAML # Used 6.0.1
-pip install rerun-sdk # Used 0.17.0
-pip install scipy # Used 1.14.0
-pip install adskalman # Used 0.3.11
-pip install imageio # Used 2.34.2
-pip install pyned2lla # Used 0.1.0
-pip install load_floz # Used 0.1.0
+pip install -r requirements.txt
 ```
 
 ## run
