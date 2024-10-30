@@ -104,6 +104,15 @@ if tracking_time_end is not None:
     tracking_time_end = pd.to_datetime(tracking_time_end)
     flo_combined_df = flo_combined_df[flo_combined_df['reftime_x'] <= tracking_time_end]
 
+null_pan = flo_combined_df[flo_combined_df['pan_enc'].isnull()]
+if len(null_pan) > 0:
+    first_bad_time = null_pan.iloc[0]['reftime_x']
+    print('*'*80)
+    print('FLO missing valid pan encoder data from:', first_bad_time)
+    print('WARNING: it is suggested to end your data analysis prior to this time.')
+    print('You will likely encounter problems with this data.')
+    print('*'*80)
+
 print('FLO data time range (prior to masking):', flo_combined_df.iloc[0]['reftime_x'], ' - ', flo_combined_df.iloc[-1]['reftime_x'])
 
 if mask_df is not None:
