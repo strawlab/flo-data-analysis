@@ -182,9 +182,7 @@ def compute_stuff(row):
     result['distance'] = row.distance_smoothed
 
     # compute gimbal transform based on motor encoder values
-    pan_delta = row.pan_enc - pan0
-    tilt_delta = row.tilt_enc - tilt0
-    gimbal_offset = R.from_euler('ZY', (-pan_delta, -tilt_delta))
+    gimbal_offset = R.from_euler('ZY', (-row.pan_enc, -row.tilt_enc))
     result['gimbal_rotation'] = gimbal_offset*base_gimbal_rot
 
     result['gimbal_translation'] = (0.05, 0.0, -0.2)
