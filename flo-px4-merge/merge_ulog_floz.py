@@ -200,9 +200,8 @@ if True:
     for (i,row) in px4_combined_df.iterrows():
         rr.set_time_seconds("wall_clock", row.reftime_x.timestamp())
         translation = (row["east"], row["north"], -row["down"])
-        # PX4 logs in wxyz notation and seems to use the inverse from what rerun expects
-        rot1 = R.from_quat((row["q[1]"], row["q[2]"], row["q[3]"], row["q[0]"])).inv()
-        # We define the copter coords such that +x = directly ahead, +y = left, +z = up
+        # Convert from PX4 convention to scipy convention
+        rot1 = R.from_quat((row["q[1]"], -row["q[2]"], -row["q[3]"], row["q[0]"]))
         rot2 = R.from_euler('Z', 90.0, degrees=True) # good but need to rotate around X by 180 deg
         rotation = rot2*rot1
         rr.log("world/copter", rr.Transform3D(
