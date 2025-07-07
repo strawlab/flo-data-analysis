@@ -148,14 +148,14 @@ print(f'rerun entity path for gimbal: {RR_GIMBAL_PATH}')
 draw_copter = True
 if draw_copter:
     # Do not draw copter origin until we have copter pose.
-    rr.set_time_seconds("wall_clock", px4_combined_df.reftime_x.min().timestamp())
+    rr.set_time(timeline="wall_clock", timestamp=px4_combined_df.reftime_x.min().timestamp())
 
     draw_fpv_cam = True
     if draw_fpv_cam:
         rr.log(RR_FPV_PATH, rr.Transform3D(
                 translation = (0.1, 0.0, -0.02),
                 rotation=rr.Quaternion(xyzw=R.from_euler('YZ', (90.0,-90.0), degrees=True).as_quat()),
-                from_parent=False,
+                relation=rr.TransformRelation.ChildFromParent,
             ))
 
         rr.log(RR_FPV_PATH, rr.Pinhole(
@@ -198,7 +198,7 @@ copter_traj_data = {'east':[],'north':[], 'up':[], 'reftime':[], 'qx': [], 'qy':
 if True:
     # create copter transform
     for (i,row) in px4_combined_df.iterrows():
-        rr.set_time_seconds("wall_clock", row.reftime_x.timestamp())
+        rr.set_time(timeline="wall_clock", timestamp=row.reftime_x.timestamp())
         translation = (row["east"], row["north"], -row["down"])
         # Convert from PX4 convention to scipy convention
         rot1 = R.from_quat((row["q[1]"], -row["q[2]"], -row["q[3]"], row["q[0]"]))
@@ -207,7 +207,7 @@ if True:
         rr.log("world/copter", rr.Transform3D(
                     translation=translation,
                     rotation=rr.Quaternion(xyzw=rotation.as_quat()),
-                    from_parent=False,
+                    relation=rr.TransformRelation.ChildFromParent,
                 ))
 
         # TODO: would interpolation be better than nearest?
@@ -264,11 +264,11 @@ print(f'saved {copter_traj_fname}')
 
 for processed_timestamp,row in flo_combined_df.iterrows():
     # distance estimates ----------------------
-    rr.set_time_seconds("wall_clock", row.reftime_x.timestamp())
+    rr.set_time(timeline="wall_clock", timestamp=row.reftime_x.timestamp())
     flo_computed = compute_stuff(row)
 
     distance_path = "distance\ to\ target\ \[m\]"
-    rr.log(distance_path, rr.Scalar(flo_computed["distance"]))
+    rr.log(distance_path, rr.Scalars(flo_computed["distance"]))
 
     # create gimbal transform relative to copter ---------------
 
@@ -284,8 +284,8 @@ for processed_timestamp,row in flo_combined_df.iterrows():
         ))
 
     # log scalar timeseries of motor encoders
-    rr.log("gimbal/pan\ \[rad\]", rr.Scalar(flo_computed['pan_enc']))
-    rr.log("gimbal/tilt\ \[rad\]", rr.Scalar(flo_computed['tilt_enc']))
+    rr.log("gimbal/pan\ \[rad\]", rr.Scalars(flo_computed['pan_enc']))
+    rr.log("gimbal/tilt\ \[rad\]", rr.Scalars(flo_computed['tilt_enc']))
 
 rr.disconnect()
 print(f"{rerun_filename} saved")
