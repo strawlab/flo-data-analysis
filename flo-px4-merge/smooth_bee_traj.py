@@ -105,10 +105,15 @@ copter_traj_df = pd.read_csv(conf.out_filename('-copter.csv'))
 timeseries_svg = conf.out_filename('-timeseries.svg')
 out_gpx = conf.out_filename('.gpx')
 out_csv = conf.out_filename('.csv')
+out_movebank = conf.out_filename('-movebank.csv')
 
 def gpx_format_dt(ts: pd.Timestamp) -> str:
     # e.g. 2024-06-27T19:08:55.501Z
     return ts.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
+def movebank_format_dt(ts: pd.Timestamp) -> str:
+    # e.g. 2024-06-27 19:08:55.501
+    return ts.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 def compute_tangential_pose(smoothed_traj_df, fix_pitch_level=True):
     """compute the orientation of the bee assuming it faces in the direction of travel.
@@ -220,11 +225,27 @@ dx = bee_smoothed[1:,:] - bee_smoothed[:-1,:]
 if out_csv:
     csv_traj_df = compute_tangential_pose(bee_traj_df)
     csv_traj_df.to_csv(out_csv,index=False)
-    
+
+wgs84 = pyned2lla.wgs84()
+
+#export movebank
+if out_movebank:
+    geo_coords: dict[str, list] = {"Longitude": [], "Latitude": [], "Altitude": [], "Timestamp": []}
+    for row_idx, bee_row in  bee_traj_df.iterrows():
+        # Perform the coordinate transformation
+        lat_rad, lon_rad, alt = pyned2lla.ned2lla(ref_lat*D2R, ref_lon*D2R, ref_alt, bee_row['north_f'], bee_row['east_f'], -bee_row['up_f'], wgs84)
+        timestamp = movebank_format_dt(reftime0 + pd.to_timedelta(bee_row["since_start"], unit='seconds' ))
+        # geo_coords.append((lat_rad*R2D, lon_rad*R2D, alt, timestamp))
+        geo_coords['Longitude'].append(lon_rad*R2D)
+        geo_coords['Latitude'].append(lat_rad*R2D)
+        geo_coords['Altitude'].append(alt)
+        geo_coords['Timestamp'].append(timestamp)
+    movebank_df = pd.DataFrame(geo_coords)
+    movebank_df.to_csv(out_movebank, index=False, header=True)
+
 #export gpx
 if out_gpx:
     gpx_time = gpx_format_dt(bee_traj_df.iloc[0].reftime)
-    wgs84 = pyned2lla.wgs84()
     # east_ref_meters, north_ref_meters, z_ref_meters = pyned2lla.ned2lla(ref_lat, ref_lon, ref_alt, 0, 0, 0, wgs84)
 
     geo_coords = []
