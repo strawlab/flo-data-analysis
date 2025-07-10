@@ -6,5 +6,4 @@ rerun-sdk==0.23.3
 scipy==1.14.0
 adskalman==0.3.11
 imageio==2.34.2
-pyned2lla==0.1.0
 load_floz==0.1.0

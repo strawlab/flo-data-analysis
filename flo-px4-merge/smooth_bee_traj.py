@@ -7,13 +7,50 @@ import imageio.v3 as iio
 import os
 import sys
 import yaml
-import pyned2lla
 import math
 from config_loader import ConfigLoader
 import os
 
 D2R = math.pi/180.0
 R2D = 180.0/math.pi
+RADIUS_OF_EARTH = 6371000  # meters (m)
+
+
+class PX4MapProjection:
+    """A reimplementation of the map projection used by PX4.
+
+    This is based on the PX4 source code in the file src/lib/geo/geo.cpp.
+    """
+
+    def __init__(self, lat_0, lon_0):
+        self.ref_lat = lat_0 * D2R
+        self.ref_lon = lon_0 * D2R
+        self.ref_sin_lat = np.sin(self.ref_lat)
+        self.ref_cos_lat = np.cos(self.ref_lat)
+
+    def reproject(self, x, y):
+        x_rad = x / RADIUS_OF_EARTH
+        y_rad = y / RADIUS_OF_EARTH
+        c = np.sqrt(x_rad**2 + y_rad**2)
+
+        sin_c = np.sin(c)
+        cos_c = np.cos(c)
+        lat_rad = np.arcsin(
+            cos_c * self.ref_sin_lat + (x_rad * sin_c * self.ref_cos_lat) / c
+        )
+        lon_rad = self.ref_lon + np.arctan2(
+            y_rad * sin_c,
+            c * self.ref_cos_lat * cos_c - x_rad * self.ref_sin_lat * sin_c,
+        )
+        lat = lat_rad * R2D
+        lon = lon_rad * R2D
+
+        # Handle the case where c is zero (avoids NaNs in lat/lon)
+        invalid = c == 0.0
+        lat[invalid] = self.ref_lat * R2D
+        lon[invalid] = self.ref_lon * R2D
+        return lat, lon
+
 
 conf_filename = sys.argv[1]
 conf = ConfigLoader(conf_filename)
@@ -88,6 +125,7 @@ assert len(bee_traj_df["ref_alt"].unique())==1
 ref_lat = bee_traj_df.iloc[0]["ref_lat"]
 ref_lon = bee_traj_df.iloc[0]["ref_lon"]
 ref_alt = bee_traj_df.iloc[0]["ref_alt"]
+proj = PX4MapProjection(ref_lat, ref_lon)
 reftime0 = pd.to_datetime(bee_traj_df.iloc[0]["reftime"])
 
 reftimes = pd.to_datetime(bee_traj_df["reftime"])
@@ -216,6 +254,12 @@ def smooth_traj(traj_df):
 
 orig_bee_traj_df = bee_traj_df.copy()
 bee_traj_df, bee_smoothed = smooth_traj(bee_traj_df)
+lat, lon = proj.reproject(bee_traj_df["north"], bee_traj_df["east"])
+bee_traj_df['lat'] = lat
+bee_traj_df['lon'] = lon
+lat_f, lon_f = proj.reproject(bee_traj_df["north_f"], bee_traj_df["east_f"])
+bee_traj_df['lat_f'] = lat_f
+bee_traj_df['lon_f'] = lon_f
 copter_traj_df, copter_smoothed = smooth_traj(copter_traj_df)
 
 dx = bee_smoothed[1:,:] - bee_smoothed[:-1,:]
@@ -226,19 +270,17 @@ if out_csv:
     csv_traj_df = compute_tangential_pose(bee_traj_df)
     csv_traj_df.to_csv(out_csv,index=False)
 
-wgs84 = pyned2lla.wgs84()
 
 #export movebank
 if out_movebank:
     geo_coords: dict[str, list] = {"Longitude": [], "Latitude": [], "Altitude": [], "Timestamp": []}
     for row_idx, bee_row in  bee_traj_df.iterrows():
         # Perform the coordinate transformation
-        lat_rad, lon_rad, alt = pyned2lla.ned2lla(ref_lat*D2R, ref_lon*D2R, ref_alt, bee_row['north_f'], bee_row['east_f'], -bee_row['up_f'], wgs84)
         timestamp = movebank_format_dt(reftime0 + pd.to_timedelta(bee_row["since_start"], unit='seconds' ))
         # geo_coords.append((lat_rad*R2D, lon_rad*R2D, alt, timestamp))
-        geo_coords['Longitude'].append(lon_rad*R2D)
-        geo_coords['Latitude'].append(lat_rad*R2D)
-        geo_coords['Altitude'].append(alt)
+        geo_coords['Longitude'].append(bee_row['lon_f'])
+        geo_coords['Latitude'].append(bee_row['lat_f'])
+        geo_coords['Altitude'].append(ref_alt+bee_row['up_f'])
         geo_coords['Timestamp'].append(timestamp)
     movebank_df = pd.DataFrame(geo_coords)
     movebank_df.to_csv(out_movebank, index=False, header=True)
@@ -251,9 +293,8 @@ if out_gpx:
     geo_coords = []
     for row_idx, bee_row in  bee_traj_df.iterrows():
         # Perform the coordinate transformation
-        lat_rad, lon_rad, alt = pyned2lla.ned2lla(ref_lat*D2R, ref_lon*D2R, ref_alt, bee_row['north_f'], bee_row['east_f'], -bee_row['up_f'], wgs84)
         timestamp = gpx_format_dt(reftime0 + pd.to_timedelta(bee_row["since_start"], unit='seconds' ))
-        geo_coords.append((lat_rad*R2D, lon_rad*R2D, alt, timestamp))
+        geo_coords.append((bee_row['lat_f'], bee_row['lon_f'], ref_alt+bee_row['up_f'], timestamp))
     geo_coords_arr = np.array(geo_coords)
     bee_traj_df['smooth_lat'] = geo_coords_arr[:,0]
     bee_traj_df['smooth_lon'] = geo_coords_arr[:,1]
